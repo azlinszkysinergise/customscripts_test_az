@@ -1,0 +1,38 @@
+//VERSION=3
+//calculate mean chlorophyll concentration for complex waters within the time interval
+//András Zlinszky and GitHub Copilot
+
+let rangeMin = -2;
+let rangeMax = 2;
+let viz = ColorRampVisualizer.createOceanColor(rangeMin, rangeMax);
+
+function setup() {
+    return {
+        input: [{
+            bands: ["CHL_NN", "dataMask"]
+        }],
+        output: [
+            { id: "default", bands: 4 },
+            { id: "eobrowserStats", bands: 1 },
+            { id: "index", bands: 1, sampleType: "FLOAT32" },
+            { id: "dataMask", bands: 1 }
+        ],
+        mosaicking: "ORBIT"
+    }
+}
+
+function evaluatePixel(samples) {
+    // samples is an array of all observations for the pixel in the time interval
+    let valid = samples.filter(s => s.dataMask === 1);
+    let meanCHL = valid.length > 0 ? valid.reduce((sum, s) => sum + s.CHL_NN, 0) / valid.length : 0;
+
+    let val = viz.process(meanCHL);
+    val.push(valid.length > 0 ? 1 : 0);
+
+    return {
+        default: val,
+        eobrowserStats: [meanCHL],
+        index: [meanCHL],
+        dataMask: [valid.length > 0 ? 1 : 0],
+    };
+}
