@@ -69,7 +69,7 @@ function evaluatePixel(samples) {
         };
     }
     
-    if ([8, 9].includes(samples.SCL)) {
+    if ([8, 9, 10].includes(samples.SCL)) {
         // Clouds - white
         return {
             default: [1, 1, 1, 1],
