@@ -29,8 +29,8 @@ function evaluatePixel(sample) {
   var B = sample.B02 * brightness;
 
   // 3. INTENSE FIRE PARAMETERS
-  var minFireC = 35;  // Threshold to start the red glow
-  var maxFireC = 150; // Threshold for white-hot center
+  var minFireC = 45;  // Threshold to start the red glow
+  var maxFireC = 115; // Threshold for white-hot center
 
   if (LST_C > minFireC) {
     // Normalize heat value
