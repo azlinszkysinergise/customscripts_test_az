@@ -1,0 +1,52 @@
+// Landsat 8/9 LST - Universal Scale & Fire Version
+function setup() {
+  return {
+    input: ["B02", "B03", "B04", "B05", "B10", "dataMask"],
+    output: { bands: 4 }
+  };
+}
+
+function evaluatePixel(sample) {
+  if (sample.dataMask === 0) return [0, 0, 0, 0];
+
+  // 1. DATA NORMALIZATION
+  var b10 = sample.B10;
+  var LST_C = 0;
+
+  // Auto-detect data format:
+  if (b10 > 200) {
+    // If B10 is large, it's likely already Kelvin. 
+    // It might be scaled by 0.1 or 0.01 in some collections.
+    LST_C = (b10 > 1000) ? (b10 * 0.1) - 273.15 : b10 - 273.15;
+  } else {
+    // If B10 is small, it's Radiance (Original formula)
+    var K1 = 774.8853;
+    var K2 = 1321.0789;
+    var BT_K = K2 / Math.log(K1 / (b10 + 0.0001) + 1);
+    LST_C = BT_K - 273.15;
+  }
+
+  // 2. VISUALIZATION PARAMETERS
+  var minC = 60;  // Everything below this is transparent
+  var maxC = 120; // Deep red/white at 100C
+
+  // 3. BACKGROUND (Natural Color at low opacity for context)
+  // This ensures the screen isn't "empty" or "solid white"
+  var gain = 2.5;
+  var r = sample.B04 * gain;
+  var g = sample.B03 * gain;
+  var b = sample.B02 * gain;
+
+  // 4. TEMPERATURE OVERLAY
+  var visualizer = ColorGradientVisualizer.createRedTemperature(minC, maxC);
+  var thermalRgb = visualizer.process(LST_C);
+
+  // 5. TRANSPARENCY LOGIC
+  // If it's cold, show the faint natural color background
+  if (LST_C < minC || isNaN(LST_C)) {
+    return [r, g, b, 0.2]; // 20% opacity background
+  }
+
+  // If it's hot, show the solid thermal color
+  return [thermalRgb[0], thermalRgb[1], thermalRgb[2], 1];
+}
