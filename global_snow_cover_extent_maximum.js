@@ -11,40 +11,44 @@ function setup() {
       { id: "eobrowserStats", bands: 1, sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1 },
     ],
-    // Enable multi-temporal processing
     mosaicking: "ORBIT"
   };
 }
 
 function evaluatePixel(samples) {
   let maxSCE = -1;
-  let finalMask = 0;
+  let hasValidData = false;
 
   // Loop through all observations in the time interval
   for (let i = 0; i < samples.length; i++) {
     let sample = samples[i];
     
-    // Update the maximum value found
-    // We prioritize the highest SCE value (usually 100 for full snow)
+    // Check if the pixel has valid data (dataMask is typically 1 for valid)
     if (sample.dataMask === 1) {
-      finalMask = 1;
+      hasValidData = true;
+      // Track the maximum SCE value found in the stack
       if (sample.SCE > maxSCE) {
         maxSCE = sample.SCE;
       }
     }
   }
 
-  // If no valid pixels were found, default to 0 or a "no data" value
-  let displayValue = maxSCE === -1 ? 0 : maxSCE;
-  let val = displayValue * factor + offset;
+  // Final values for the outputs
+  // If no valid data was found, we set the mask to 0 to exclude from stats
+  let finalMask = hasValidData ? 1 : 0;
+  let displayValue = hasValidData ? maxSCE : 0;
+  let statValue = hasValidData ? (maxSCE * factor + offset) : NaN;
 
-  const indexVal = finalMask === 1 ? val : NaN;
   const imgVals = getColor(displayValue);
 
   return {
+    // Visual output (RGB + Alpha)
     default: imgVals.concat(finalMask * 255),
-    index: [indexVal],
-    eobrowserStats: [val],
+    // Used for Time Series and Histograms
+    index: [statValue],
+    // Explicitly used by EO Browser/Copernicus stats engine
+    eobrowserStats: [statValue],
+    // Excludes invalid pixels from being counted in the histogram
     dataMask: [finalMask],
   };
 }
@@ -165,7 +169,6 @@ function getColor(value) {
   const closestEntry = ColorBar.reduce((prev, curr) => {
     return Math.abs(curr[0] - value) < Math.abs(prev[0] - value) ? curr : prev;
   });
-
   const [_, color] = closestEntry;
   return [color[0], color[1], color[2]];
 }
