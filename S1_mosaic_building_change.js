@@ -5,13 +5,14 @@ const dbThresholdVV = 3.5;
 const dbThresholdVH = 2.5; 
 
 // --- AGRICULTURAL FILTERS (Applied to the 'after' image: S1_MOSAIC_2) ---
-// 1. Absolute Brightness Gate: Crops rarely exceed -5 dB. Buildings easily exceed -3 dB.
 const minAbsoluteVV_2 = -4.0; 
-
-// 2. Polarization Ratio Filter: VV must be significantly higher than VH (in dB).
-// Crops depolarize the signal, bringing VH closer to VV (gap < 3 dB). 
-// Buildings maintain a strong VV dominance (gap > 3 to 5 dB).
 const minGapVV_VH_2 = 3.5; 
+
+// --- OUTPUT DISPLAY SETTINGS ---
+// Opacity for pixels with NO structural change (0.0 = fully transparent)
+const zeroMapOpacity = 0.0; 
+// Opacity for pixels WITH structural change (0.5 = 50% transparent)
+const mapOpacity = 0.5; 
 
 // --- USER-TUNABLE PALETTE ---
 const colorRamp = [
@@ -66,11 +67,7 @@ function evaluatePixel(samples) {
     let index = 0;
     
     // THE LOGIC GATE:
-    // 1. Did both VV and VH increase? (Structural change)
-    // 2. Is the new structure objectively bright? (Kills crop changes)
-    // 3. Is VV strongly dominant over VH in the new image? (Kills dense volume scattering)
     if (diffVV > 0 && diffVH > 0 && vv_2 > minAbsoluteVV_2 && gapVV_VH_2 > minGapVV_VH_2) {
-        
         let scoreVV = Math.min(diffVV / dbThresholdVV, 1.0);
         let scoreVH = Math.min(diffVH / dbThresholdVH, 1.0);
         
@@ -78,9 +75,13 @@ function evaluatePixel(samples) {
     }
 
     let rgb = visualizer.process(index);
+    
+    // Choose opacity based on whether change was detected
+    let currentOpacity = (index === 0) ? zeroMapOpacity : mapOpacity;
 
+    // Apply the mapped RGB color and the calculated opacity
     return {
-        default: [rgb[0], rgb[1], rgb[2], 1.0], 
+        default: [rgb[0], rgb[1], rgb[2], currentOpacity], 
         index: [index]                          
     };
 }
