@@ -1,0 +1,74 @@
+//VERSION=3
+
+function setup() {
+  return {
+    input: [
+      { datasource: "S1GRD", bands: ["VV", "dataMask"] },
+      // Added "VV" here to ensure Sentinel Hub successfully fetches the mosaic data
+      { datasource: "S1M", bands: ["VV", "dataMask"] } 
+    ],
+    output: [
+      { id: "default", bands: 4 },
+      { id: "index", bands: 1, sampleType: "FLOAT32" }, 
+      { id: "browserStats", bands: 1 },
+      { id: "dataMask", bands: 1 },
+    ],
+  };
+}
+
+function evaluatePixel(samples) {
+  const s1 = samples.S1GRD[0];
+  const mosaic = samples.S1M[0];
+
+  // 1. If primary Sentinel-1 data exists inside the swath, apply the color palette
+  if (s1 !== undefined && s1.dataMask === 1 && s1.VV !== undefined && s1.VV !== 0) {
+    const dB = 10 * Math.log10(s1.VV);
+
+    const rgb = colorBlend(
+      dB,
+      [
+        -29.0,   // 1. Black 
+        -26.5,   // 2. Blue 
+        -25.5,   // 3. Turquoise
+        -24.5,   // 4. Slightly green dark blue (Teal)
+        -12.0,   // 5. White (Coastline transition)
+         -8.0,   // 6. Pink 
+         -4.0    // 7. Purple (Dominant land color)
+      ],
+      [
+        [0, 0, 0],           // Black
+        [0, 0, 1],           // Blue
+        [0, 1, 1],           // Turquoise
+        [0.0, 0.4, 0.6],     // Slightly green dark blue (Teal)
+        [1, 1, 1],           // White 
+        [1, 0.4, 0.7],       // Pink
+        [0.5, 0, 0.5]        // Purple
+      ]
+    );
+
+    return {
+      default: [rgb[0], rgb[1], rgb[2], 1], // Alpha = 1 (opaque)
+      index: [dB], 
+      browserStats: [dB], 
+      dataMask: [1],
+    };
+  }
+
+  // 2. If outside the S1GRD swath, but mosaic data exists, fill with black
+  if (mosaic !== undefined && mosaic.dataMask === 1) {
+    return {
+      default: [0, 0, 0, 1], // Solid black background
+      index: [NaN],          // Exclude from histogram
+      browserStats: [NaN],
+      dataMask: [1],         // Mark as valid pixel to fill canvas
+    };
+  }
+
+  // 3. If there is absolutely no data from either source
+  return {
+    default: [0, 0, 0, 0], 
+    index: [NaN], 
+    browserStats: [NaN],
+    dataMask: [0]
+  };
+}
