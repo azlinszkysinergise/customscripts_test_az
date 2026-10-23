@@ -1,5 +1,5 @@
 // VERSION=3
-// Enhanced RGB ratio visualization for Sentinel-1 (IW, dual-pol VV+VH).
+// Reinhard Tonemapped RGB Ratio visualization for Sentinel-1 (IW, dual-pol VV+VH).
 // R = VV, G = VH, B = VH/VV ratio. A Reinhard tone-mapping curve lifts the
 // mid-range and compresses the highlights, so dense cities keep their internal
 // structure instead of clipping to white and vegetation reads clearly green.
