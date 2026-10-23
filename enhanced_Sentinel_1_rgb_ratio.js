@@ -1,4 +1,4 @@
-//VERSION=3
+// VERSION=3
 // Enhanced RGB ratio visualization for Sentinel-1 (IW, dual-pol VV+VH).
 // R = VV, G = VH, B = VH/VV ratio. A Reinhard tone-mapping curve lifts the
 // mid-range and compresses the highlights, so dense cities keep their internal
@@ -11,16 +11,16 @@
 // ---- USER-TUNABLE PARAMETERS -------------------------------------------
 // Per-channel gain: higher = brighter that channel. Sets both the colour
 // balance and where each channel lands on the tone curve.
-var vvGain = 2.9; // VV     -> Red
+var vvGain = 2.9;  // VV     -> Red
 var vhGain = 16.0; // VH     -> Green  (raise for greener vegetation)
 var ratGain = 1.6; // VH/VV  -> Blue
 
 // Tone curve:
-var white = 3.0; // white point: higher -> more highlight headroom
+var white = 3; // white point: higher -> more highlight headroom
 // (keeps bright cities from blowing out to white)
-var gamma = 0.8; // <1 lifts the mid-range; 1 = no change
+var gamma = 1; // <1 lifts the mid-range; 1 = no change
 
-var saturation = 1.2; // >1 boosts colour separation
+var saturation = 1.1; // >1 boosts colour separation
 
 function setup() {
   return {
@@ -44,23 +44,19 @@ function saturate(rgb, s) {
   ];
 }
 
-function clamp01(x) {
-  return x < 0 ? 0 : x > 1 ? 1 : x;
-}
-
 function evaluatePixel(s) {
-  // no-data, non-positive, or NaN -> transparent. !(x > 0) also catches NaN,
-  // so Sentinel-1 monthly-mosaic gaps stay clean.
-  if (s.dataMask === 0 || !(s.VV > 0) || !(s.VH > 0)) {
-    return [0, 0, 0, s.dataMask];
+  // Relying solely on dataMask as suggested by the reviewer
+  if (s.dataMask === 0) {
+    return [0, 0, 0, 0];
   }
 
   var col = [s.VV * vvGain, s.VH * vhGain, (s.VH / s.VV) * ratGain];
 
   col = saturate(col, saturation);
 
+  // Math.pow and reinhard are applied; Sentinel Hub automatically clamps the final output
   for (var i = 0; i < 3; i++) {
-    col[i] = clamp01(Math.pow(reinhard(col[i]), gamma));
+    col[i] = Math.pow(reinhard(col[i]), gamma);
   }
 
   return [col[0], col[1], col[2], s.dataMask];
