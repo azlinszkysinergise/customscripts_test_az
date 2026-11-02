@@ -1,0 +1,79 @@
+//VERSION=3
+//MuWI-R water index based on Wang 2018 Remote Sensing https://www.mdpi.com/2072-4292/10/10/1643
+//Created by @azlinszky.bsky.social and Google Gemini Pro
+// User-tuneable parameters
+const waterThreshold = 0.0; // Threshold above which a pixel is classified as water
+const minMuwi = 0.0;        // MuWI-R value corresponding to light blue
+const maxMuwi = 1.5;        // MuWI-R value corresponding to dark blue
+
+// Colors for the water ramp [Red, Green, Blue] (0.0 to 1.0)
+const lightBlue = [0.6, 0.8, 1.0];
+const darkBlue  = [0.0, 0.1, 0.6];
+
+function setup() {
+  return {
+    input: ["B02", "B03", "B04", "B08", "B11", "B12", "dataMask"],
+    output: [
+      { id: "default", bands: 3 },
+      { id: "index", bands: 1, sampleType: "FLOAT32" },
+      { id: "eobrowserStats", bands: 1, sampleType: "FLOAT32" }
+    ]
+  };
+}
+
+// Helper function to calculate Normalized Difference
+function ND(band1, band2) {
+  let denom = band1 + band2;
+  return denom === 0 ? 0 : (band1 - band2) / denom;
+}
+
+// Helper function to linearly interpolate between two colors
+function lerpColor(val, min, max, color1, color2) {
+  // Normalize and clamp the value between 0 and 1
+  let t = (val - min) / (max - min);
+  t = Math.max(0, Math.min(1, t));
+  
+  return [
+    color1[0] + t * (color2[0] - color1[0]),
+    color1[1] + t * (color2[1] - color1[1]),
+    color1[2] + t * (color2[2] - color1[2])
+  ];
+}
+
+function evaluatePixel(sample) {
+  // Skip no-data pixels
+  if (sample.dataMask === 0) {
+    return {
+      default: [0, 0, 0],
+      index: [NaN],
+      eobrowserStats: [NaN]
+    }; 
+  }
+  
+  // Calculate the Normalized Differences used in MuWI-R
+  let nd23 = ND(sample.B02, sample.B03);
+  let nd38 = ND(sample.B03, sample.B08);
+  let nd312 = ND(sample.B03, sample.B12);
+  let nd311 = ND(sample.B03, sample.B11);
+  
+  // MuWI-R (Multi-Spectral Water Index - Revised) formula
+  let muwi_r = -4 * nd23 + 2 * nd38 + 2 * nd312 - nd311;
+  
+  let defaultOut;
+  
+  // Classify as water based on the user-tuneable threshold
+  if (muwi_r > waterThreshold) {
+    // Map the MuWI-R value to the light-to-dark blue color ramp
+    defaultOut = lerpColor(muwi_r, minMuwi, maxMuwi, lightBlue, darkBlue);
+  } else {
+    // Return natural color representation for non-water pixels
+    let brightness = 2.5;
+    defaultOut = [sample.B04 * brightness, sample.B03 * brightness, sample.B02 * brightness];
+  }
+  
+  return {
+    default: defaultOut,
+    index: [muwi_r],
+    eobrowserStats: [muwi_r]
+  };
+}
